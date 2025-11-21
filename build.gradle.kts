@@ -28,6 +28,7 @@ dependencies {
     implementation("io.quarkus:quarkus-smallrye-fault-tolerance")
     implementation("org.jsoup:jsoup:1.17.2")
     testImplementation("io.quarkus:quarkus-junit5")
+    testImplementation("io.quarkus:quarkus-junit5-mockito")
     testImplementation("io.rest-assured:rest-assured")
 }
 

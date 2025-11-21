@@ -28,6 +28,9 @@ public class WikipediaScraper {
     @Inject
     DescriptionAiService descriptionAiService;
 
+    @Inject
+    WikipediaPageFetcher pageFetcher;
+
     @ConfigProperty(name = "wikipedia.url")
     String wikipediaUrl;
 
@@ -48,9 +51,7 @@ public class WikipediaScraper {
                 return;
             }
 
-            Document doc = Jsoup.connect(wikipediaUrl)
-                .userAgent(userAgent)
-                .get();
+            Document doc = pageFetcher.fetch(wikipediaUrl, userAgent);
             Element mpTfp = doc.getElementById("mp-tfp");
 
             if (mpTfp == null) {
@@ -109,16 +110,30 @@ public class WikipediaScraper {
             // Further cleanup of description if needed
             // e.g. removing "Today's featured picture" title if it was grabbed (usually it's in a header outside mp-tfp, but `mp-tfp` is the content)
 
-            Log.info("Downloading image from: " + originalImgUrl);
-            byte[] originalImage = imageService.downloadImage(originalImgUrl);
-            byte[] ditheredImage = imageService.ditherImage(originalImage);
+            PictureOfTheDay existingPotd = PictureOfTheDay.findByImageUrl(originalImgUrl);
+            byte[] originalImage;
+            byte[] ditheredImage;
+            String shortDescription;
 
-            String shortDescription = null;
-            try {
-                shortDescription = descriptionAiService.summarize(description);
-            } catch (Exception e) {
-                Log.warn("Failed to generate short description via AI", e);
-                shortDescription = "Description unavailable";
+            if (existingPotd != null) {
+                Log.info("Image already exists in database. Reusing data from " + existingPotd.date);
+                originalImage = existingPotd.originalImage;
+                ditheredImage = existingPotd.ditheredImage;
+                shortDescription = existingPotd.shortDescription;
+                // Also reuse description and credit if we trust they are the same for the same image,
+                // but for now we used the scraped description as it might be context dependent (PotD blurb).
+                // However, to save AI cost, we reuse shortDescription.
+            } else {
+                Log.info("Downloading image from: " + originalImgUrl);
+                originalImage = imageService.downloadImage(originalImgUrl);
+                ditheredImage = imageService.ditherImage(originalImage);
+
+                try {
+                    shortDescription = descriptionAiService.summarize(description);
+                } catch (Exception e) {
+                    Log.warn("Failed to generate short description via AI", e);
+                    shortDescription = "Description unavailable";
+                }
             }
 
             PictureOfTheDay potd = new PictureOfTheDay();
@@ -126,6 +141,7 @@ public class WikipediaScraper {
             potd.description = description;
             potd.shortDescription = shortDescription;
             potd.credit = credit;
+            potd.imageUrl = originalImgUrl;
             potd.originalImage = originalImage;
             potd.ditheredImage = ditheredImage;
             potd.createdAt = LocalDateTime.now();

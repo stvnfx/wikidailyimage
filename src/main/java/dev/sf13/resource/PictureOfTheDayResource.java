@@ -33,10 +33,27 @@ public class PictureOfTheDayResource {
     @Path("/today")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<PictureOfTheDayDTO> getToday() {
-        // Delegate to getByDate to reuse cache and logic
         LOG.info("GET /api/potd/today");
-        LOG.info("Date: " + LocalDate.now());
-        return getByDate(LocalDate.now().toString());
+        LocalDate today = LocalDate.now();
+        LOG.info("Date: " + today);
+        return Uni.createFrom().item(() -> {
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(today);
+            if (potd == null) {
+                LOG.info("Today's POTD not found, trying to fetch the latest.");
+                potd = PictureOfTheDay.findLatest();
+            }
+            if (potd == null) {
+                return null;
+            }
+            return new PictureOfTheDayDTO(
+                potd.date,
+                potd.description,
+                potd.shortDescription,
+                potd.credit,
+                "/api/potd/" + potd.date.toString() + "/image",
+                "/api/potd/" + potd.date.toString() + "/image/dithered"
+            );
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }
 
     @GET
@@ -146,6 +163,50 @@ public class PictureOfTheDayResource {
                     return Response.ok(data).build();
                 } catch (java.io.IOException e) {
                     LOG.error("Error scaling image", e);
+                    return Response.serverError().build();
+                }
+            }
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
+    }
+
+    @GET
+    @Path("/today/trmnl")
+    @Produces("image/png")
+    public Uni<Response> getTrmnlImage() {
+        return Uni.createFrom().item(() -> {
+            LocalDate today = LocalDate.now();
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(today);
+            if (potd == null) {
+                potd = PictureOfTheDay.findLatest();
+            }
+            if (potd != null) {
+                return potd.date.toString();
+            }
+            return null;
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
+          .flatMap(dateStr -> {
+              if (dateStr == null) {
+                  return Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build());
+              }
+              return getTrmnlImageByDate(dateStr);
+          });
+    }
+
+    @CacheResult(cacheName = "potd-trmnl-date")
+    public Uni<Response> getTrmnlImageByDate(String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr);
+        return Uni.createFrom().item(() -> {
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(date);
+            if (potd != null && potd.originalImage != null) {
+                try {
+                    // Scale to 800x480 first, preserving aspect ratio
+                    byte[] scaled = imageService.scaleImageAndCenter(potd.originalImage, 800, 480);
+                    // Then dither
+                    byte[] dithered = imageService.ditherImage(scaled);
+                    return Response.ok(dithered).build();
+                } catch (java.io.IOException e) {
+                    LOG.error("Error generating TRMNL image", e);
                     return Response.serverError().build();
                 }
             }

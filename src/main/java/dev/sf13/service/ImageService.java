@@ -57,6 +57,43 @@ public class ImageService {
         return baos.toByteArray();
     }
 
+    public byte[] scaleImageAndCenter(byte[] imageData, int targetWidth, int targetHeight) throws IOException {
+        BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
+        double originalRatio = (double) original.getWidth() / original.getHeight();
+        double targetRatio = (double) targetWidth / targetHeight;
+
+        int newWidth;
+        int newHeight;
+
+        if (originalRatio > targetRatio) {
+            // Original is wider than target -> Fit width
+            newWidth = targetWidth;
+            newHeight = (int) (targetWidth / originalRatio);
+        } else {
+            // Original is taller than target -> Fit height
+            newHeight = targetHeight;
+            newWidth = (int) (targetHeight * originalRatio);
+        }
+
+        Image scaled = original.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        BufferedImage background = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g2d = background.createGraphics();
+
+        // Fill with white background
+        g2d.setColor(Color.WHITE);
+        g2d.fillRect(0, 0, targetWidth, targetHeight);
+
+        // Draw centered
+        int x = (targetWidth - newWidth) / 2;
+        int y = (targetHeight - newHeight) / 2;
+        g2d.drawImage(scaled, x, y, null);
+        g2d.dispose();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(background, "png", baos);
+        return baos.toByteArray();
+    }
+
     public byte[] ditherImage(byte[] originalImageData) throws IOException {
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(originalImageData));
         BufferedImage dithered = applyFloydSteinbergDithering(original);

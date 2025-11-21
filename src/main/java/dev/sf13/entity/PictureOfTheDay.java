@@ -23,6 +23,8 @@ public class PictureOfTheDay extends PanacheEntity {
 
     public String credit;
 
+    public String imageUrl;
+
     @Lob
     public byte[] originalImage;
 
@@ -33,5 +35,13 @@ public class PictureOfTheDay extends PanacheEntity {
 
     public static PictureOfTheDay findByDate(LocalDate date) {
         return find("date", date).firstResult();
+    }
+
+    public static PictureOfTheDay findByImageUrl(String imageUrl) {
+        return find("imageUrl", imageUrl).firstResult();
+    }
+
+    public static PictureOfTheDay findLatest() {
+        return find("order by date desc").firstResult();
     }
 }
