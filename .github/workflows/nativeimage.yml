@@ -43,18 +43,17 @@ jobs:
       - name: Build Native Executable
         run: ./gradlew build -Dquarkus.package.type=native -x test
 
-      # 5. Build the Docker Image using the binary we just created
-      # Note: The Dockerfile path hasn't changed, but the Dockerfile content has (see below)
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker Image
-        run: docker build -f src/main/docker/Dockerfile.native -t my-quarkus-app:latest .
+        run: docker build -f src/main/docker/Dockerfile.native -t ghcr.io/${{ env.IMAGE_NAME }}:latest .
 
-      # 6. (Optional) Log in to Docker Hub / GHCR
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # 7. (Optional) Push the image
-      # - name: Push Docker Image
-      #   run: docker push my-quarkus-app:latest
+      # 6. Push the image
+      - name: Push Docker Image
+        run: docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
