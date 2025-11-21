@@ -9,6 +9,7 @@ import io.quarkus.cache.CacheResult;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -37,6 +38,7 @@ public class PictureOfTheDayResource {
     @GET
     @Path("/today")
     @Produces(MediaType.APPLICATION_JSON)
+    @Transactional
     public Uni<PictureOfTheDayDTO> getToday() {
         registry.counter("potd.requests", Tags.of("type", "today")).increment();
         LOG.info("GET /api/potd/today");
@@ -72,7 +74,8 @@ public class PictureOfTheDayResource {
     @GET
     @Path("/{date}")
     @Produces(MediaType.APPLICATION_JSON)
-//    @CacheResult(cacheName = "potd-date")
+    @Transactional
+    @CacheResult(cacheName = "potd-date")
     public Uni<PictureOfTheDayDTO> getByDate(@PathParam("date") String dateStr) {
         registry.counter("potd.requests", Tags.of("type", "date")).increment();
         LocalDate date;
@@ -106,6 +109,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/image")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image")
+    @Transactional
     public Uni<Response> getImage(@PathParam("date") String dateStr) {
          return getImageScaled(dateStr, null, null);
     }
@@ -114,6 +118,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/{width}/image")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-scaled-w")
+    @Transactional
     public Uni<Response> getImageWidth(@PathParam("date") String dateStr, @PathParam("width") Integer width) {
         return getImageScaled(dateStr, width, null);
     }
@@ -122,6 +127,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/{width}/{height}/image")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-scaled-wh")
+    @Transactional
     public Uni<Response> getImageWidthHeight(@PathParam("date") String dateStr, @PathParam("width") Integer width, @PathParam("height") Integer height) {
         return getImageScaled(dateStr, width, height);
     }
@@ -147,6 +153,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/image/dithered")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-dithered")
+    @Transactional
     public Uni<Response> getDitheredImage(@PathParam("date") String dateStr) {
         return getDitheredImageScaled(dateStr, null, null);
     }
@@ -155,6 +162,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/{width}/image/dithered")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-dithered-scaled-w")
+    @Transactional
     public Uni<Response> getDitheredImageWidth(@PathParam("date") String dateStr, @PathParam("width") Integer width) {
         return getDitheredImageScaled(dateStr, width, null);
     }
@@ -163,6 +171,7 @@ public class PictureOfTheDayResource {
     @Path("/{date}/{width}/{height}/image/dithered")
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-dithered-scaled-wh")
+    @Transactional
     public Uni<Response> getDitheredImageWidthHeight(@PathParam("date") String dateStr, @PathParam("width") Integer width, @PathParam("height") Integer height) {
         return getDitheredImageScaled(dateStr, width, height);
     }
@@ -187,6 +196,7 @@ public class PictureOfTheDayResource {
     @GET
     @Path("/today/trmnl")
     @Produces("image/png")
+    @Transactional
     public Uni<Response> getTrmnlImage() {
         registry.counter("potd.requests", Tags.of("type", "trmnl")).increment();
         LOG.info("GET /api/potd/today/trmnl");
@@ -213,6 +223,7 @@ public class PictureOfTheDayResource {
     }
 
     @CacheResult(cacheName = "potd-trmnl-date")
+    @Transactional
     public Uni<Response> getTrmnlImageByDate(String dateStr) {
         LOG.debugf("Generating/Retrieving cached TRMNL image for date: %s", dateStr);
         LocalDate date = LocalDate.parse(dateStr);
