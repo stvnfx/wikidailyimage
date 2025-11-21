@@ -17,7 +17,7 @@
 # To use UBI 8, switch to `quay.io/ubi8/ubi-minimal:8.10`.
 ###
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6
-WORKDIR /work/
+RUN microdnf install -y freetype fontconfig expat
 
 # Second stage - copy the dependencies
 FROM quay.io/quarkus/ubi9-quarkus-micro-image:2.0
