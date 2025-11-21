@@ -12,6 +12,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import javax.imageio.ImageIO;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.DistributionSummary;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class ImageService {
@@ -19,6 +23,10 @@ public class ImageService {
     @ConfigProperty(name = "wikipedia.user-agent")
     String userAgent;
 
+    @Inject
+    MeterRegistry registry;
+
+    @WithSpan("ImageService.downloadImage")
     public byte[] downloadImage(String url) throws IOException {
         Log.infof("Downloading image from %s", url);
         java.net.URLConnection connection = java.net.URI.create(url).toURL().openConnection();
@@ -26,10 +34,18 @@ public class ImageService {
         try (InputStream in = connection.getInputStream()) {
             byte[] bytes = in.readAllBytes();
             Log.infof("Downloaded %d bytes from %s", bytes.length, url);
+
+            DistributionSummary.builder("image.download.size")
+                .description("Size of downloaded images in bytes")
+                .baseUnit("bytes")
+                .register(registry)
+                .record(bytes.length);
+
             return bytes;
         }
     }
 
+    @WithSpan("ImageService.scaleImage")
     public byte[] scaleImage(byte[] imageData, Integer width, Integer height) throws IOException {
         Log.debugf("Scaling image to width=%s, height=%s", width, height);
         if (width == null && height == null) {
@@ -62,6 +78,7 @@ public class ImageService {
         return baos.toByteArray();
     }
 
+    @WithSpan("ImageService.scaleImageAndCenter")
     public byte[] scaleImageAndCenter(byte[] imageData, int targetWidth, int targetHeight) throws IOException {
         Log.debugf("Scaling and centering image to %dx%d", targetWidth, targetHeight);
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
@@ -100,6 +117,7 @@ public class ImageService {
         return baos.toByteArray();
     }
 
+    @WithSpan("ImageService.ditherImage")
     public byte[] ditherImage(byte[] originalImageData) throws IOException {
         Log.debug("Starting Floyd-Steinberg dithering...");
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(originalImageData));

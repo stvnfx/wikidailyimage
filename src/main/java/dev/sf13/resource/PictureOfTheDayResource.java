@@ -3,6 +3,8 @@ package dev.sf13.resource;
 import dev.sf13.dto.PictureOfTheDayDTO;
 import dev.sf13.entity.PictureOfTheDay;
 import dev.sf13.service.WikipediaScraper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.smallrye.mutiny.Uni;
@@ -29,10 +31,14 @@ public class PictureOfTheDayResource {
     @Inject
     dev.sf13.service.ImageService imageService;
 
+    @Inject
+    MeterRegistry registry;
+
     @GET
     @Path("/today")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<PictureOfTheDayDTO> getToday() {
+        registry.counter("potd.requests", Tags.of("type", "today")).increment();
         LOG.info("GET /api/potd/today");
         LocalDate today = LocalDate.now();
         return Uni.createFrom().item(() -> {
@@ -68,6 +74,7 @@ public class PictureOfTheDayResource {
     @Produces(MediaType.APPLICATION_JSON)
 //    @CacheResult(cacheName = "potd-date")
     public Uni<PictureOfTheDayDTO> getByDate(@PathParam("date") String dateStr) {
+        registry.counter("potd.requests", Tags.of("type", "date")).increment();
         LocalDate date;
         try {
             date = LocalDate.parse(dateStr);
@@ -181,6 +188,7 @@ public class PictureOfTheDayResource {
     @Path("/today/trmnl")
     @Produces("image/png")
     public Uni<Response> getTrmnlImage() {
+        registry.counter("potd.requests", Tags.of("type", "trmnl")).increment();
         LOG.info("GET /api/potd/today/trmnl");
         return Uni.createFrom().item(() -> {
             LocalDate today = LocalDate.now();
@@ -231,6 +239,7 @@ public class PictureOfTheDayResource {
     @POST
     @Path("/scrape")
     public Uni<Response> triggerScrape() {
+        registry.counter("scraper.triggered").increment();
         return Uni.createFrom().item(() -> {
             scraper.scrape();
             return Response.ok("Scrape triggered").build();
