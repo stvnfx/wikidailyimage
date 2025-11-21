@@ -4,6 +4,7 @@ import dev.sf13.dto.PictureOfTheDayDTO;
 import dev.sf13.entity.PictureOfTheDay;
 import dev.sf13.service.WikipediaScraper;
 import io.quarkus.cache.CacheResult;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -13,10 +14,14 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
+
 import java.time.LocalDate;
+import java.util.List;
 
 @Path("/api/potd")
 public class PictureOfTheDayResource {
+    private static final Logger LOG = Logger.getLogger(PictureOfTheDayResource.class);
 
     @Inject
     WikipediaScraper scraper;
@@ -26,13 +31,15 @@ public class PictureOfTheDayResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<PictureOfTheDayDTO> getToday() {
         // Delegate to getByDate to reuse cache and logic
+        LOG.info("GET /api/potd/today");
+        LOG.info("Date: " + LocalDate.now());
         return getByDate(LocalDate.now().toString());
     }
 
     @GET
     @Path("/{date}")
     @Produces(MediaType.APPLICATION_JSON)
-    @CacheResult(cacheName = "potd-date")
+//    @CacheResult(cacheName = "potd-date")
     public Uni<PictureOfTheDayDTO> getByDate(@PathParam("date") String dateStr) {
         LocalDate date;
         try {
@@ -42,8 +49,13 @@ public class PictureOfTheDayResource {
         }
 
         final LocalDate finalDate = date;
+        LOG.info("GET /api/potd/" + finalDate);
         return Uni.createFrom().item(() -> {
+            List<PanacheEntityBase> list = PictureOfTheDay.findAll().list();
+            LOG.info("Found " + list.size() + " PictureOfTheDay entries");
+            LOG.info("All: " + list);
             PictureOfTheDay potd = PictureOfTheDay.findByDate(finalDate);
+            LOG.info("Found PictureOfTheDay for date " + finalDate + ": " + potd);
             if (potd == null) return null;
             return new PictureOfTheDayDTO(
                 potd.date,

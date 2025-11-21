@@ -85,15 +85,21 @@ public class WikipediaScraper {
             String description = mpTfp.text();
             String credit = "";
 
-            // Attempt to parse credit specifically if "Photograph credit" is present
+            String separator = null;
             if (description.contains("Photograph credit:")) {
-                String[] parts = description.split("Photograph credit:");
+                separator = "Photograph credit:";
+            } else if (description.contains("Photograph:")) {
+                separator = "Photograph:";
+            }
+
+            if (separator != null) {
+                String[] parts = description.split(separator);
                 if (parts.length > 1) {
-                     credit = parts[1].trim();
-                     // Sometimes there are other things after credit, like "Recently featured".
-                     // We might want to split by newline or just take until end.
-                     // Let's refine description to remove credit and "Recently featured"
-                     description = parts[0].trim();
+                    credit = parts[1].trim();
+                    // Sometimes there are other things after credit, like "Recently featured".
+                    // We might want to split by newline or just take until end.
+                    // Let's refine description to remove credit and "Recently featured"
+                    description = parts[0].trim();
                 }
             }
 
