@@ -33,10 +33,34 @@ public class PictureOfTheDayResource {
     @Path("/today")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<PictureOfTheDayDTO> getToday() {
-        // Delegate to getByDate to reuse cache and logic
         LOG.info("GET /api/potd/today");
-        LOG.info("Date: " + LocalDate.now());
-        return getByDate(LocalDate.now().toString());
+        LocalDate today = LocalDate.now();
+        return Uni.createFrom().item(() -> {
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(today);
+            if (potd == null) {
+                LOG.warnf("POTD for today (%s) not found. Attempting fallback to latest available image.", today);
+                potd = PictureOfTheDay.findLatest();
+                if (potd != null) {
+                    LOG.infof("Fallback successful. Serving POTD from %s", potd.date);
+                } else {
+                    LOG.error("Fallback failed. No POTD records found in database.");
+                }
+            } else {
+                LOG.infof("Serving POTD for today: %s", today);
+            }
+
+            if (potd == null) {
+                return null;
+            }
+            return new PictureOfTheDayDTO(
+                potd.date,
+                potd.description,
+                potd.shortDescription,
+                potd.credit,
+                "/api/potd/" + potd.date.toString() + "/image",
+                "/api/potd/" + potd.date.toString() + "/image/dithered"
+            );
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }
 
     @GET
@@ -48,18 +72,18 @@ public class PictureOfTheDayResource {
         try {
             date = LocalDate.parse(dateStr);
         } catch (java.time.format.DateTimeParseException e) {
+            LOG.errorf("Invalid date format received: %s", dateStr);
             return Uni.createFrom().failure(new jakarta.ws.rs.BadRequestException("Invalid date format. Use YYYY-MM-DD"));
         }
 
         final LocalDate finalDate = date;
         LOG.info("GET /api/potd/" + finalDate);
         return Uni.createFrom().item(() -> {
-            List<PanacheEntityBase> list = PictureOfTheDay.findAll().list();
-            LOG.info("Found " + list.size() + " PictureOfTheDay entries");
-            LOG.info("All: " + list);
             PictureOfTheDay potd = PictureOfTheDay.findByDate(finalDate);
-            LOG.info("Found PictureOfTheDay for date " + finalDate + ": " + potd);
-            if (potd == null) return null;
+            if (potd == null) {
+                LOG.warnf("POTD not found for date: %s", finalDate);
+                return null;
+            }
             return new PictureOfTheDayDTO(
                 potd.date,
                 potd.description,
@@ -149,6 +173,57 @@ public class PictureOfTheDayResource {
                     return Response.serverError().build();
                 }
             }
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
+    }
+
+    @GET
+    @Path("/today/trmnl")
+    @Produces("image/png")
+    public Uni<Response> getTrmnlImage() {
+        LOG.info("GET /api/potd/today/trmnl");
+        return Uni.createFrom().item(() -> {
+            LocalDate today = LocalDate.now();
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(today);
+            if (potd == null) {
+                LOG.warnf("TRMNL Request: POTD for today (%s) not found. Checking for latest.", today);
+                potd = PictureOfTheDay.findLatest();
+            }
+            if (potd != null) {
+                LOG.infof("TRMNL Request: Serving POTD from date %s", potd.date);
+                return potd.date.toString();
+            }
+            LOG.error("TRMNL Request: No POTD found.");
+            return null;
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
+          .flatMap(dateStr -> {
+              if (dateStr == null) {
+                  return Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build());
+              }
+              return getTrmnlImageByDate(dateStr);
+          });
+    }
+
+    @CacheResult(cacheName = "potd-trmnl-date")
+    public Uni<Response> getTrmnlImageByDate(String dateStr) {
+        LOG.debugf("Generating/Retrieving cached TRMNL image for date: %s", dateStr);
+        LocalDate date = LocalDate.parse(dateStr);
+        return Uni.createFrom().item(() -> {
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(date);
+            if (potd != null && potd.originalImage != null) {
+                try {
+                    // Scale to 800x480 first, preserving aspect ratio
+                    byte[] scaled = imageService.scaleImageAndCenter(potd.originalImage, 800, 480);
+                    // Then dither
+                    byte[] dithered = imageService.ditherImage(scaled);
+                    LOG.infof("TRMNL image generated for date: %s", dateStr);
+                    return Response.ok(dithered).build();
+                } catch (java.io.IOException e) {
+                    LOG.error("Error generating TRMNL image", e);
+                    return Response.serverError().build();
+                }
+            }
+            LOG.warnf("TRMNL image generation failed. POTD or image data missing for date: %s", dateStr);
             return Response.status(Response.Status.NOT_FOUND).build();
         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }

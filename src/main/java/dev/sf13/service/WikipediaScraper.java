@@ -28,6 +28,9 @@ public class WikipediaScraper {
     @Inject
     DescriptionAiService descriptionAiService;
 
+    @Inject
+    WikipediaPageFetcher pageFetcher;
+
     @ConfigProperty(name = "wikipedia.url")
     String wikipediaUrl;
 
@@ -48,20 +51,19 @@ public class WikipediaScraper {
                 return;
             }
 
-            Document doc = Jsoup.connect(wikipediaUrl)
-                .userAgent(userAgent)
-                .get();
+            Log.info("Fetching Wikipedia Main Page from: " + wikipediaUrl);
+            Document doc = pageFetcher.fetch(wikipediaUrl, userAgent);
             Element mpTfp = doc.getElementById("mp-tfp");
 
             if (mpTfp == null) {
-                Log.error("Could not find 'mp-tfp' element on Wikipedia Main Page.");
+                Log.error("Could not find 'mp-tfp' element on Wikipedia Main Page. The structure might have changed.");
                 return;
             }
 
             // Extract Image URL
             Element imgElement = mpTfp.select("img").first();
             if (imgElement == null) {
-                Log.error("No image found in 'mp-tfp'.");
+                Log.error("No image found in 'mp-tfp' container.");
                 return;
             }
 
@@ -76,7 +78,7 @@ public class WikipediaScraper {
             // Original: //upload.wikimedia.org/wikipedia/commons/a/a4/My_Image.jpg
 
             String originalImgUrl = getOriginalImageUrl(imgUrl);
-
+            Log.infof("Found image URL: %s. Resolved to original URL: %s", imgUrl, originalImgUrl);
 
             // Extract Description and Credit
             // The layout is usually: Image on left, Text on right.
@@ -109,16 +111,30 @@ public class WikipediaScraper {
             // Further cleanup of description if needed
             // e.g. removing "Today's featured picture" title if it was grabbed (usually it's in a header outside mp-tfp, but `mp-tfp` is the content)
 
-            Log.info("Downloading image from: " + originalImgUrl);
-            byte[] originalImage = imageService.downloadImage(originalImgUrl);
-            byte[] ditheredImage = imageService.ditherImage(originalImage);
+            PictureOfTheDay existingPotd = PictureOfTheDay.findByImageUrl(originalImgUrl);
+            byte[] originalImage;
+            byte[] ditheredImage;
+            String shortDescription;
 
-            String shortDescription = null;
-            try {
-                shortDescription = descriptionAiService.summarize(description);
-            } catch (Exception e) {
-                Log.warn("Failed to generate short description via AI", e);
-                shortDescription = "Description unavailable";
+            if (existingPotd != null) {
+                Log.infof("Image already exists in database (Date: %s). Reusing binary data and AI summary.", existingPotd.date);
+                originalImage = existingPotd.originalImage;
+                ditheredImage = existingPotd.ditheredImage;
+                shortDescription = existingPotd.shortDescription;
+            } else {
+                Log.infof("Image not found in database. Downloading from: %s", originalImgUrl);
+                originalImage = imageService.downloadImage(originalImgUrl);
+                Log.infof("Image downloaded. Size: %d bytes. Proceeding to dither.", originalImage.length);
+                ditheredImage = imageService.ditherImage(originalImage);
+
+                try {
+                    Log.info("Generating short description via AI...");
+                    shortDescription = descriptionAiService.summarize(description);
+                    Log.info("AI Short description generated successfully.");
+                } catch (Exception e) {
+                    Log.error("Failed to generate short description via AI", e);
+                    shortDescription = "Description unavailable";
+                }
             }
 
             PictureOfTheDay potd = new PictureOfTheDay();
@@ -126,6 +142,7 @@ public class WikipediaScraper {
             potd.description = description;
             potd.shortDescription = shortDescription;
             potd.credit = credit;
+            potd.imageUrl = originalImgUrl;
             potd.originalImage = originalImage;
             potd.ditheredImage = ditheredImage;
             potd.createdAt = LocalDateTime.now();
