@@ -18,6 +18,9 @@ public class PictureOfTheDay extends PanacheEntity {
     @Column(length = 5000)
     public String description;
 
+    @Column(length = 1000)
+    public String shortDescription;
+
     public String credit;
 
     @Lob

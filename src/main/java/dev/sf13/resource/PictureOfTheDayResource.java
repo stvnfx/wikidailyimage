@@ -26,6 +26,9 @@ public class PictureOfTheDayResource {
     @Inject
     WikipediaScraper scraper;
 
+    @Inject
+    dev.sf13.service.ImageService imageService;
+
     @GET
     @Path("/today")
     @Produces(MediaType.APPLICATION_JSON)
@@ -60,6 +63,7 @@ public class PictureOfTheDayResource {
             return new PictureOfTheDayDTO(
                 potd.date,
                 potd.description,
+                potd.shortDescription,
                 potd.credit,
                 "/api/potd/" + finalDate.toString() + "/image",
                 "/api/potd/" + finalDate.toString() + "/image/dithered"
@@ -72,14 +76,40 @@ public class PictureOfTheDayResource {
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image")
     public Uni<Response> getImage(@PathParam("date") String dateStr) {
-         LocalDate date = LocalDate.parse(dateStr);
-         return Uni.createFrom().item(() -> {
-             PictureOfTheDay potd = PictureOfTheDay.findByDate(date);
-             if (potd != null && potd.originalImage != null) {
-                 return Response.ok(potd.originalImage).build();
-             }
-             return Response.status(Response.Status.NOT_FOUND).build();
-         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
+         return getImageScaled(dateStr, null, null);
+    }
+
+    @GET
+    @Path("/{date}/{width}/image")
+    @Produces("image/png")
+    @CacheResult(cacheName = "potd-image-scaled-w")
+    public Uni<Response> getImageWidth(@PathParam("date") String dateStr, @PathParam("width") Integer width) {
+        return getImageScaled(dateStr, width, null);
+    }
+
+    @GET
+    @Path("/{date}/{width}/{height}/image")
+    @Produces("image/png")
+    @CacheResult(cacheName = "potd-image-scaled-wh")
+    public Uni<Response> getImageWidthHeight(@PathParam("date") String dateStr, @PathParam("width") Integer width, @PathParam("height") Integer height) {
+        return getImageScaled(dateStr, width, height);
+    }
+
+    private Uni<Response> getImageScaled(String dateStr, Integer width, Integer height) {
+        LocalDate date = LocalDate.parse(dateStr);
+        return Uni.createFrom().item(() -> {
+            PictureOfTheDay potd = PictureOfTheDay.findByDate(date);
+            if (potd != null && potd.originalImage != null) {
+                try {
+                    byte[] data = imageService.scaleImage(potd.originalImage, width, height);
+                    return Response.ok(data).build();
+                } catch (java.io.IOException e) {
+                    LOG.error("Error scaling image", e);
+                    return Response.serverError().build();
+                }
+            }
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }
 
     @GET
@@ -87,11 +117,37 @@ public class PictureOfTheDayResource {
     @Produces("image/png")
     @CacheResult(cacheName = "potd-image-dithered")
     public Uni<Response> getDitheredImage(@PathParam("date") String dateStr) {
+        return getDitheredImageScaled(dateStr, null, null);
+    }
+
+    @GET
+    @Path("/{date}/{width}/image/dithered")
+    @Produces("image/png")
+    @CacheResult(cacheName = "potd-image-dithered-scaled-w")
+    public Uni<Response> getDitheredImageWidth(@PathParam("date") String dateStr, @PathParam("width") Integer width) {
+        return getDitheredImageScaled(dateStr, width, null);
+    }
+
+    @GET
+    @Path("/{date}/{width}/{height}/image/dithered")
+    @Produces("image/png")
+    @CacheResult(cacheName = "potd-image-dithered-scaled-wh")
+    public Uni<Response> getDitheredImageWidthHeight(@PathParam("date") String dateStr, @PathParam("width") Integer width, @PathParam("height") Integer height) {
+        return getDitheredImageScaled(dateStr, width, height);
+    }
+
+    private Uni<Response> getDitheredImageScaled(String dateStr, Integer width, Integer height) {
         LocalDate date = LocalDate.parse(dateStr);
         return Uni.createFrom().item(() -> {
             PictureOfTheDay potd = PictureOfTheDay.findByDate(date);
             if (potd != null && potd.ditheredImage != null) {
-                return Response.ok(potd.ditheredImage).build();
+                try {
+                    byte[] data = imageService.scaleImage(potd.ditheredImage, width, height);
+                    return Response.ok(data).build();
+                } catch (java.io.IOException e) {
+                    LOG.error("Error scaling image", e);
+                    return Response.serverError().build();
+                }
             }
             return Response.status(Response.Status.NOT_FOUND).build();
         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());

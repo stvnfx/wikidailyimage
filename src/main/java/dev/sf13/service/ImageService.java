@@ -3,6 +3,7 @@ package dev.sf13.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.awt.Color;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,6 +24,37 @@ public class ImageService {
         try (InputStream in = connection.getInputStream()) {
             return in.readAllBytes();
         }
+    }
+
+    public byte[] scaleImage(byte[] imageData, Integer width, Integer height) throws IOException {
+        if (width == null && height == null) {
+            return imageData;
+        }
+        BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
+        int originalWidth = original.getWidth();
+        int originalHeight = original.getHeight();
+
+        int newWidth = originalWidth;
+        int newHeight = originalHeight;
+
+        if (width != null && height != null) {
+            newWidth = width;
+            newHeight = height;
+        } else if (width != null) {
+            newWidth = width;
+            newHeight = (int) (((double) width / originalWidth) * originalHeight);
+        } else if (height != null) {
+            newHeight = height;
+            newWidth = (int) (((double) height / originalHeight) * originalWidth);
+        }
+
+        Image scaled = original.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        BufferedImage bufferedScaled = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        bufferedScaled.getGraphics().drawImage(scaled, 0, 0, null);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(bufferedScaled, "png", baos);
+        return baos.toByteArray();
     }
 
     public byte[] ditherImage(byte[] originalImageData) throws IOException {

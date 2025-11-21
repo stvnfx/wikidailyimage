@@ -25,6 +25,9 @@ public class WikipediaScraper {
     @Inject
     ImageService imageService;
 
+    @Inject
+    DescriptionAiService descriptionAiService;
+
     @ConfigProperty(name = "wikipedia.url")
     String wikipediaUrl;
 
@@ -110,9 +113,18 @@ public class WikipediaScraper {
             byte[] originalImage = imageService.downloadImage(originalImgUrl);
             byte[] ditheredImage = imageService.ditherImage(originalImage);
 
+            String shortDescription = null;
+            try {
+                shortDescription = descriptionAiService.summarize(description);
+            } catch (Exception e) {
+                Log.warn("Failed to generate short description via AI", e);
+                shortDescription = "Description unavailable";
+            }
+
             PictureOfTheDay potd = new PictureOfTheDay();
             potd.date = today;
             potd.description = description;
+            potd.shortDescription = shortDescription;
             potd.credit = credit;
             potd.originalImage = originalImage;
             potd.ditheredImage = ditheredImage;
