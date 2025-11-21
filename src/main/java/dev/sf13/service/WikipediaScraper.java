@@ -1,6 +1,10 @@
 package dev.sf13.service;
 
 import dev.sf13.entity.PictureOfTheDay;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,23 +35,38 @@ public class WikipediaScraper {
     @Inject
     WikipediaPageFetcher pageFetcher;
 
+    @Inject
+    MeterRegistry registry;
+
+    // Gauge state
+    private java.util.concurrent.atomic.AtomicLong lastSuccessfulScrapeTime = new java.util.concurrent.atomic.AtomicLong(0);
+
     @ConfigProperty(name = "wikipedia.url")
     String wikipediaUrl;
 
     @ConfigProperty(name = "wikipedia.user-agent")
     String userAgent;
 
+    @jakarta.annotation.PostConstruct
+    void init() {
+        registry.gauge("scraper.last_success_timestamp", lastSuccessfulScrapeTime);
+    }
+
     @Scheduled(cron = "0 0 8 * * ?")
     @Transactional
     @Retry(maxRetries = 3, delay = 10, delayUnit = ChronoUnit.SECONDS)
     @CircuitBreaker(requestVolumeThreshold = 4, failureRatio = 0.5, delay = 1, delayUnit = ChronoUnit.HOURS)
     @RateLimit(value = 1, window = 10, windowUnit = ChronoUnit.MINUTES)
+    @WithSpan("Scraper.scrape")
     public void scrape() {
+        Timer.Sample sample = Timer.start(registry);
         Log.info("Starting daily Wikipedia Picture of the Day scrape...");
         try {
             LocalDate today = LocalDate.now();
             if (PictureOfTheDay.findByDate(today) != null) {
                 Log.info("Picture of the Day for today already exists. Skipping.");
+                registry.counter("scraper.execution", Tags.of("result", "skipped")).increment();
+                sample.stop(registry.timer("scraper.duration", "result", "skipped"));
                 return;
             }
 
@@ -149,9 +168,14 @@ public class WikipediaScraper {
 
             potd.persist();
             Log.info("Successfully scraped and saved Picture of the Day for " + today);
+            lastSuccessfulScrapeTime.set(System.currentTimeMillis());
+            registry.counter("scraper.execution", Tags.of("result", "success")).increment();
+            sample.stop(registry.timer("scraper.duration", "result", "success"));
 
         } catch (IOException e) {
             Log.error("Error scraping Wikipedia", e);
+            registry.counter("scraper.execution", Tags.of("result", "failure")).increment();
+            sample.stop(registry.timer("scraper.duration", "result", "failure"));
         }
     }
 
