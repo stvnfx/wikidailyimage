@@ -37,6 +37,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Set up Image Name
+        run: |
+          echo "IMAGE_NAME=$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       # 4. Build the Native Executable
       # -x test skips the tests to save time
       # We use -Dquarkus.package.type=native to avoid the "Outputting both native and JAR" error
