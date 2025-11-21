@@ -1,6 +1,7 @@
 package dev.sf13.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.logging.Log;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.awt.Color;
 import java.awt.Image;
@@ -19,14 +20,18 @@ public class ImageService {
     String userAgent;
 
     public byte[] downloadImage(String url) throws IOException {
+        Log.infof("Downloading image from %s", url);
         java.net.URLConnection connection = java.net.URI.create(url).toURL().openConnection();
         connection.setRequestProperty("User-Agent", userAgent);
         try (InputStream in = connection.getInputStream()) {
-            return in.readAllBytes();
+            byte[] bytes = in.readAllBytes();
+            Log.infof("Downloaded %d bytes from %s", bytes.length, url);
+            return bytes;
         }
     }
 
     public byte[] scaleImage(byte[] imageData, Integer width, Integer height) throws IOException {
+        Log.debugf("Scaling image to width=%s, height=%s", width, height);
         if (width == null && height == null) {
             return imageData;
         }
@@ -58,6 +63,7 @@ public class ImageService {
     }
 
     public byte[] scaleImageAndCenter(byte[] imageData, int targetWidth, int targetHeight) throws IOException {
+        Log.debugf("Scaling and centering image to %dx%d", targetWidth, targetHeight);
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
         double originalRatio = (double) original.getWidth() / original.getHeight();
         double targetRatio = (double) targetWidth / targetHeight;
@@ -95,8 +101,10 @@ public class ImageService {
     }
 
     public byte[] ditherImage(byte[] originalImageData) throws IOException {
+        Log.debug("Starting Floyd-Steinberg dithering...");
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(originalImageData));
         BufferedImage dithered = applyFloydSteinbergDithering(original);
+        Log.debug("Dithering complete.");
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(dithered, "png", baos);
