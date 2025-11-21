@@ -10,6 +10,9 @@ jobs:
   build-native-image:
     name: Build Native on Linux x64
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
