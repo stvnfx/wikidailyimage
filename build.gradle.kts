@@ -28,6 +28,7 @@ dependencies {
     implementation("io.quarkus:quarkus-smallrye-fault-tolerance")
     implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
     implementation("io.quarkus:quarkus-opentelemetry")
+    implementation("io.quarkus:quarkus-awt")
     implementation("org.jsoup:jsoup:1.17.2")
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-junit5-mockito")
