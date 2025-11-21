@@ -39,8 +39,9 @@ jobs:
 
       # 4. Build the Native Executable
       # -x test skips the tests to save time
+      # We use -Dquarkus.package.type=native to avoid the "Outputting both native and JAR" error
       - name: Build Native Executable
-        run: ./gradlew build -Dquarkus.native.enabled=true -x test
+        run: ./gradlew build -Dquarkus.package.type=native -x test
 
       # 5. Build the Docker Image using the binary we just created
       # Note: The Dockerfile path hasn't changed, but the Dockerfile content has (see below)
