@@ -1,0 +1,59 @@
+name: Build Native Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-native-image:
+    name: Build Native on Linux x64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Set up GraalVM (Mandrel is optimized for Quarkus)
+      - name: Set up GraalVM (Mandrel)
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'          # Match this to your project's Java version
+          distribution: 'mandrel'     # Recommended for Quarkus
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Cache Gradle packages to speed up future builds
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 3. Make Gradlew Executable
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. Build the Native Executable
+      # -x test skips the tests to save time
+      - name: Build Native Executable
+        run: ./gradlew build -Dquarkus.native.enabled=true -x test
+
+      # 5. Build the Docker Image using the binary we just created
+      # Note: The Dockerfile path hasn't changed, but the Dockerfile content has (see below)
+      - name: Build Docker Image
+        run: docker build -f src/main/docker/Dockerfile.native -t my-quarkus-app:latest .
+
+      # 6. (Optional) Log in to Docker Hub / GHCR
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 7. (Optional) Push the image
+      # - name: Push Docker Image
+      #   run: docker push my-quarkus-app:latest
