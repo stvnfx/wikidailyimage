@@ -56,6 +56,7 @@ COPY --from=nativelibs \
 RUN chown 1001 /work \
     && chmod "g+rwX" /work \
     && chown 1001:root /work
+COPY --chown=1001:root build/*.properties build/*.so /work/
 COPY --chown=1001:root --chmod=0755 build/*-runner /work/application
 
 EXPOSE 8080
