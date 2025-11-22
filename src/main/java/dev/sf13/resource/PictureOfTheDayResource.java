@@ -66,7 +66,8 @@ public class PictureOfTheDayResource {
                 potd.shortDescription,
                 potd.credit,
                 "/api/potd/" + potd.date.toString() + "/image",
-                "/api/potd/" + potd.date.toString() + "/image/dithered"
+                "/api/potd/" + potd.date.toString() + "/image/dithered",
+                    "/api/potd/today/trmnl"
             );
         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }
@@ -100,7 +101,8 @@ public class PictureOfTheDayResource {
                 potd.shortDescription,
                 potd.credit,
                 "/api/potd/" + finalDate.toString() + "/image",
-                "/api/potd/" + finalDate.toString() + "/image/dithered"
+                "/api/potd/" + finalDate.toString() + "/image/dithered",
+                    "/api/potd/today/trmnl"
             );
         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool());
     }

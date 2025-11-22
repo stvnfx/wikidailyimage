@@ -9,15 +9,18 @@ public class PictureOfTheDayDTO {
     public String credit;
     public String imageUrl;
     public String ditheredImageUrl;
+    public String trmnlImageUrl;
 
     public PictureOfTheDayDTO() {}
 
-    public PictureOfTheDayDTO(LocalDate date, String description, String shortDescription, String credit, String imageUrl, String ditheredImageUrl) {
+    public PictureOfTheDayDTO(LocalDate date, String description, String shortDescription,
+                              String credit, String imageUrl, String ditheredImageUrl, String trmnlImageUrl) {
         this.date = date;
         this.description = description;
         this.shortDescription = shortDescription;
         this.credit = credit;
         this.imageUrl = imageUrl;
         this.ditheredImageUrl = ditheredImageUrl;
+        this.trmnlImageUrl = trmnlImageUrl;
     }
 }

@@ -52,7 +52,7 @@ public class WikipediaScraper {
         registry.gauge("scraper.last_success_timestamp", lastSuccessfulScrapeTime);
     }
 
-    @Scheduled(cron = "0 0 8 * * ?")
+    @Scheduled(cron = "0 0 * * * ?")
     @Transactional
     @Retry(maxRetries = 3, delay = 10, delayUnit = ChronoUnit.SECONDS)
     @CircuitBreaker(requestVolumeThreshold = 4, failureRatio = 0.5, delay = 1, delayUnit = ChronoUnit.HOURS)
