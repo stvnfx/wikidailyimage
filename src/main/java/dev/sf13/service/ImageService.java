@@ -80,36 +80,40 @@ public class ImageService {
 
     @WithSpan("ImageService.scaleImageAndCenter")
     public byte[] scaleImageAndCenter(byte[] imageData, int targetWidth, int targetHeight) throws IOException {
-        Log.debugf("Scaling and centering image to %dx%d", targetWidth, targetHeight);
+        Log.debugf("Scaling and centering image to %dx%d (Cover Mode)", targetWidth, targetHeight);
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
-        double originalRatio = (double) original.getWidth() / original.getHeight();
-        double targetRatio = (double) targetWidth / targetHeight;
 
-        int newWidth;
-        int newHeight;
+        // --- CHANGE 1: Logic Swap from "Fit" to "Fill" ---
+        // We calculate the scale factor required for both width and height.
+        // To FILL the screen, we pick the LARGER scale factor.
+        // (To "fit" with borders, you would pick the smaller one).
+        double scaleWidth = (double) targetWidth / original.getWidth();
+        double scaleHeight = (double) targetHeight / original.getHeight();
+        double scale = Math.max(scaleWidth, scaleHeight);
 
-        if (originalRatio > targetRatio) {
-            // Original is wider than target -> Fit width
-            newWidth = targetWidth;
-            newHeight = (int) (targetWidth / originalRatio);
-        } else {
-            // Original is taller than target -> Fit height
-            newHeight = targetHeight;
-            newWidth = (int) (targetHeight * originalRatio);
-        }
+        int newWidth = (int) (original.getWidth() * scale);
+        int newHeight = (int) (original.getHeight() * scale);
+        // ------------------------------------------------
 
-        Image scaled = original.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
         BufferedImage background = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g2d = background.createGraphics();
 
-        // Fill with white background
+        // --- CHANGE 2: Keep the High Quality settings to prevent the Grid ---
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Fill background (just in case, though the image should cover it now)
         g2d.setColor(Color.WHITE);
         g2d.fillRect(0, 0, targetWidth, targetHeight);
 
-        // Draw centered
+        // Calculate center position
+        // Since newWidth/Height are >= target, these values will be 0 or negative
+        // which correctly "shifts" the image to center it.
         int x = (targetWidth - newWidth) / 2;
         int y = (targetHeight - newHeight) / 2;
-        g2d.drawImage(scaled, x, y, null);
+
+        g2d.drawImage(original, x, y, newWidth, newHeight, null);
         g2d.dispose();
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
