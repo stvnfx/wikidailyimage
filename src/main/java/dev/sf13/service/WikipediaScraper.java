@@ -106,26 +106,11 @@ public class WikipediaScraper {
             // Based on the provided image, the text is to the right.
             // Let's try to get all text from mp-tfp.
 
+
             String description = mpTfp.text();
-            String credit = "";
 
-            String separator = null;
-            if (description.contains("Photograph credit:")) {
-                separator = "Photograph credit:";
-            } else if (description.contains("Photograph:")) {
-                separator = "Photograph:";
-            }
-
-            if (separator != null) {
-                String[] parts = description.split(separator);
-                if (parts.length > 1) {
-                    credit = parts[1].trim();
-                    // Sometimes there are other things after credit, like "Recently featured".
-                    // We might want to split by newline or just take until end.
-                    // Let's refine description to remove credit and "Recently featured"
-                    description = parts[0].trim();
-                }
-            }
+            Elements creditSelect = doc.select("#mp-tfp > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > p:nth-child(2)");
+            String credit = creditSelect.text();
 
             // Further cleanup of description if needed
             // e.g. removing "Today's featured picture" title if it was grabbed (usually it's in a header outside mp-tfp, but `mp-tfp` is the content)
