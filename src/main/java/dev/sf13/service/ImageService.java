@@ -136,21 +136,33 @@ public class ImageService {
     private BufferedImage applyFloydSteinbergDithering(BufferedImage img) {
         int w = img.getWidth();
         int h = img.getHeight();
-        BufferedImage dithered = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
 
-        // Convert to grayscale and handle dithering
-        // We'll use a float array to process errors to avoid clipping issues during propagation
+        // 1. Prepare the float array for error propagation
         float[][] pixels = new float[w][h];
 
+        // 2. Convert to Grayscale AND add Noise
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 Color c = new Color(img.getRGB(x, y));
-                // Simple grayscale conversion
-                float gray = (c.getRed() + c.getGreen() + c.getBlue()) / 3.0f;
+
+                // Use Luma formula (Human eyes are more sensitive to Green)
+                float gray = (c.getRed() * 0.299f + c.getGreen() * 0.587f + c.getBlue() * 0.114f);
+
+                // --- NOISE INJECTION START ---
+                // Add a tiny bit of random noise (approx +/- 10 on a 0-255 scale)
+                // This prevents the "worm" artifacts in flat gray areas by breaking the mathematical pattern.
+                float noise = (float) ((Math.random() - 0.5) * 10);
+                gray = gray + noise;
+
+                // Clamp strictly between 0 and 255 just in case noise pushed it over
+                gray = Math.max(0, Math.min(255, gray));
+                // --- NOISE INJECTION END ---
+
                 pixels[x][y] = gray;
             }
         }
 
+        // 3. Apply Floyd-Steinberg Error Diffusion
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 float oldPixel = pixels[x][y];
@@ -159,20 +171,29 @@ public class ImageService {
 
                 float quantError = oldPixel - newPixel;
 
+                // Distribute error to neighbors (7, 3, 5, 1 weights)
                 if (x + 1 < w)
-                    pixels[x + 1][y] = pixels[x + 1][y] + quantError * 7 / 16;
+                    pixels[x + 1][y] += quantError * 7 / 16;
                 if (x - 1 >= 0 && y + 1 < h)
-                    pixels[x - 1][y + 1] = pixels[x - 1][y + 1] + quantError * 3 / 16;
+                    pixels[x - 1][y + 1] += quantError * 3 / 16;
                 if (y + 1 < h)
-                    pixels[x][y + 1] = pixels[x][y + 1] + quantError * 5 / 16;
+                    pixels[x][y + 1] += quantError * 5 / 16;
                 if (x + 1 < w && y + 1 < h)
-                    pixels[x + 1][y + 1] = pixels[x + 1][y + 1] + quantError * 1 / 16;
+                    pixels[x + 1][y + 1] += quantError * 1 / 16;
             }
         }
 
+        // 4. Output as strictly 1-bit Binary (Crucial for TRMNL)
+        BufferedImage dithered = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
+
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                int val = (int) Math.min(255, Math.max(0, pixels[x][y]));
+                // Since we already quantized to 0 or 255 in the loop above,
+                // we just map those to Black or White.
+                int val = (int) pixels[x][y];
+                // Safety clamp again just to be sure
+                val = Math.min(255, Math.max(0, val));
+
                 int rgb = (val < 128) ? Color.BLACK.getRGB() : Color.WHITE.getRGB();
                 dithered.setRGB(x, y, rgb);
             }
