@@ -132,7 +132,7 @@ public class ImageService {
     private BufferedImage applyFloydSteinbergDithering(BufferedImage img) {
         int w = img.getWidth();
         int h = img.getHeight();
-        BufferedImage dithered = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        BufferedImage dithered = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
 
         // Convert to grayscale and handle dithering
         // We'll use a float array to process errors to avoid clipping issues during propagation
@@ -169,7 +169,7 @@ public class ImageService {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int val = (int) Math.min(255, Math.max(0, pixels[x][y]));
-                int rgb = new Color(val, val, val).getRGB();
+                int rgb = (val < 128) ? Color.BLACK.getRGB() : Color.WHITE.getRGB();
                 dithered.setRGB(x, y, rgb);
             }
         }
