@@ -59,7 +59,7 @@ public class WikipediaScraper {
     @Transactional
     @Retry(maxRetries = 3, delay = 10, delayUnit = ChronoUnit.SECONDS)
     @CircuitBreaker(requestVolumeThreshold = 4, failureRatio = 0.5, delay = 1, delayUnit = ChronoUnit.HOURS)
-    @RateLimit(value = 1, window = 10, windowUnit = ChronoUnit.MINUTES)
+//    @RateLimit(value = 1, window = 10, windowUnit = ChronoUnit.MINUTES)
     @WithSpan("Scraper.scrape")
     public void scrape() {
         Timer.Sample sample = Timer.start(registry);
