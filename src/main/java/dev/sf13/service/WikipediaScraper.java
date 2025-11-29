@@ -38,6 +38,9 @@ public class WikipediaScraper {
     @Inject
     MeterRegistry registry;
 
+    @Inject
+    CacheClearer cacheClearer;
+
     // Gauge state
     private java.util.concurrent.atomic.AtomicLong lastSuccessfulScrapeTime = new java.util.concurrent.atomic.AtomicLong(0);
 
@@ -153,6 +156,8 @@ public class WikipediaScraper {
 
             potd.persist();
             Log.info("Successfully scraped and saved Picture of the Day for " + today);
+            Log.info("Clearing caches to ensure latest data is served.");
+            cacheClearer.clearAllCaches();
             lastSuccessfulScrapeTime.set(System.currentTimeMillis());
             registry.counter("scraper.execution", Tags.of("result", "success")).increment();
             sample.stop(registry.timer("scraper.duration", "result", "success"));
