@@ -52,6 +52,9 @@ public class ImageService {
             return imageData;
         }
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
+        if (original == null) {
+            throw new IOException("Failed to read image data during scaling. The data may be corrupted or in an unsupported format.");
+        }
         int originalWidth = original.getWidth();
         int originalHeight = original.getHeight();
 
@@ -82,6 +85,9 @@ public class ImageService {
     public byte[] scaleImageAndCenter(byte[] imageData, int targetWidth, int targetHeight) throws IOException {
         Log.debugf("Scaling and centering image to %dx%d (Cover Mode)", targetWidth, targetHeight);
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageData));
+        if (original == null) {
+            throw new IOException("Failed to read image data during scaling and centering. The data may be corrupted or in an unsupported format.");
+        }
 
         // --- CHANGE 1: Logic Swap from "Fit" to "Fill" ---
         // We calculate the scale factor required for both width and height.
@@ -125,6 +131,9 @@ public class ImageService {
     public byte[] ditherImage(byte[] originalImageData) throws IOException {
         Log.debug("Starting Floyd-Steinberg dithering...");
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(originalImageData));
+        if (original == null) {
+            throw new IOException("Failed to read image data during dithering. The data may be corrupted or in an unsupported format.");
+        }
         BufferedImage dithered = applyFloydSteinbergDithering(original);
         Log.debug("Dithering complete.");
 
