@@ -66,12 +66,6 @@ public class WikipediaScraper {
         Log.info("Starting daily Wikipedia Picture of the Day scrape...");
         try {
             LocalDate today = LocalDate.now();
-            if (PictureOfTheDay.findByDate(today) != null) {
-                Log.info("Picture of the Day for today already exists. Skipping.");
-                registry.counter("scraper.execution", Tags.of("result", "skipped")).increment();
-                sample.stop(registry.timer("scraper.duration", "result", "skipped"));
-                return;
-            }
 
             Log.info("Fetching Wikipedia Main Page from: " + wikipediaUrl);
             Document doc = pageFetcher.fetch(wikipediaUrl, userAgent);
