@@ -30,6 +30,11 @@ dependencies {
     implementation("io.quarkus:quarkus-opentelemetry")
     implementation("io.quarkus:quarkus-awt")
     implementation("org.jsoup:jsoup:1.17.2")
+
+    // SVG Support
+    implementation("org.apache.xmlgraphics:batik-transcoder:1.17")
+    implementation("org.apache.xmlgraphics:batik-codec:1.17")
+
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-junit5-mockito")
     testImplementation("io.rest-assured:rest-assured")

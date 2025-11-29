@@ -26,6 +26,9 @@ public class ImageService {
     @Inject
     MeterRegistry registry;
 
+    @Inject
+    SvgConverter svgConverter;
+
     @WithSpan("ImageService.downloadImage")
     public byte[] downloadImage(String url) throws IOException {
         Log.infof("Downloading image from %s", url);
@@ -41,6 +44,10 @@ public class ImageService {
                 .register(registry)
                 .record(bytes.length);
 
+            if (svgConverter.isSvg(bytes)) {
+                Log.info("Detected SVG image. Converting to PNG...");
+                return svgConverter.convertSvgToPng(bytes);
+            }
             return bytes;
         }
     }
